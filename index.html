@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Serverless Link Manager</title>
     
+    <!-- Dynamic Inline Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔗</text></svg>">
+    
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     
@@ -205,7 +208,6 @@
                 <button onclick="loadAnalytics()" class="btn btn-sm btn-outline-primary">🔄 Refresh Data</button>
             </div>
             
-            <!-- EXPLICIT GOATCOUNTER FIX WARNING -->
             <div class="alert alert-warning border-warning shadow-sm small py-2 mb-3 d-flex align-items-center">
                 <span class="fs-4 me-3">⚠️</span>
                 <div>
@@ -317,8 +319,31 @@
         else prefixEl.innerText = 'github.io/';
     }
 
+    // Advanced Clipboard fallback for iframe/cross-origin constraints
+    function fallbackCopy(text) {
+        let textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.top = "0";
+        textArea.style.left = "0";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            showToast("Copied to clipboard!", "success");
+        } catch (err) {
+            showToast("Failed to copy link.", "danger");
+        }
+        document.body.removeChild(textArea);
+    }
+
     function copyDynamic(url) {
-        navigator.clipboard.writeText(url).then(() => showToast("Copied to clipboard!", "success")).catch(() => showToast("Failed to copy.", "danger"));
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(url).then(() => showToast("Copied to clipboard!", "success")).catch(() => fallbackCopy(url));
+        } else {
+            fallbackCopy(url);
+        }
     }
 
     function downloadDynamicQR(url, alias) {
@@ -405,6 +430,7 @@
                 const alias = dir.name;
                 const finalUrl = `${baseUrl}/${alias}`;
                 const tr = document.createElement('tr');
+                tr.id = `row-${alias}`; // Added ID to remove row dynamically
                 tr.innerHTML = `
                     <td class="ps-4 fw-bold text-primary">/${alias}</td>
                     <td id="orig-${alias}"><span class="spinner-border spinner-border-sm text-muted"></span></td>
@@ -428,8 +454,8 @@
             const res = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/${alias}/index.html`, { headers: { 'Authorization': `Bearer ${token}` } });
             if(res.ok) {
                 const file = await res.json();
-                // Safely decode Base64
                 const content = decodeURIComponent(escape(window.atob(file.content.replace(/\s/g, ''))));
+                // Extract URL from JS redirect instead of meta tag
                 const match = content.match(/window\.location\.replace\("([^"]+)"\)/);
                 const origUrl = match ? match[1] : "Unknown";
                 document.getElementById(`orig-${alias}`).innerHTML = `<a href="${origUrl}" target="_blank" class="d-inline-block text-truncate text-secondary" style="max-width:250px;" title="${origUrl}">${origUrl}</a>`;
@@ -448,8 +474,19 @@
             for (let file of files) {
                 await fetch(`https://api.github.com/repos/${ghUser}/${ghRepo}/contents/${file.path}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${ghToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ message: `Deleted /${alias}`, sha: file.sha }) });
             }
+            
             showToast(`Deleted /${alias}`, "success");
-            loadLinks();
+            
+            // Instantly remove row from DOM instead of relying on cached API reload
+            const row = document.getElementById(`row-${alias}`);
+            if (row) row.remove();
+            
+            // If table is now empty, show placeholder
+            const tbody = document.getElementById('links-table-body');
+            if (tbody.children.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-5 text-muted">No links found.</td></tr>';
+            }
+
         } catch (e) { showToast(`Error: ${e.message}`, "danger"); btn.innerHTML = '🗑️'; btn.disabled = false; }
     }
 
@@ -493,6 +530,9 @@
         createBtn.disabled = true;
 
         let baseUrl = customDomain ? `https://${customDomain}` : `https://${ghUser}.github.io/${ghRepo}`;
+        
+        // Remove trailing slashes from base URL to prevent double slashes in OG tags
+        baseUrl = baseUrl.replace(/\/$/, "");
         const finalDomain = `${baseUrl}/${alias}`; 
         let finalImageUrl = '';
 
@@ -513,7 +553,8 @@
 
             statusDiv.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Publishing link...';
 
-            // THE INVISIBLE REDIRECT HTML
+            // FIXED FACEBOOK SCRAPER ISSUE: Removed <meta http-equiv="refresh"> completely. 
+            // Scrapers don't execute JS, so they read the OG tags. Humans execute JS and redirect instantly.
             const redirectHtml = `<!DOCTYPE html>
 <html>
 <head>
@@ -525,19 +566,20 @@
   <meta property="og:url" content="${finalDomain}">
   <meta property="og:title" content="${metaTitle}">
   <meta property="og:description" content="${metaDesc}">
-  ${finalImageUrl ? `<meta property="og:image" content="${finalImageUrl}">` : ''}
+  ${finalImageUrl ? `<meta property="og:image" content="${finalImageUrl}">\n  <meta property="og:image:width" content="1200">\n  <meta property="og:image:height" content="630">` : ''}
   <meta property="twitter:card" content="summary_large_image">
   <meta property="twitter:url" content="${finalDomain}">
   <meta property="twitter:title" content="${metaTitle}">
   <meta property="twitter:description" content="${metaDesc}">
   ${finalImageUrl ? `<meta property="twitter:image" content="${finalImageUrl}">` : ''}
   
-  <meta http-equiv="refresh" content="0; url=${longUrl}">
   <script data-goatcounter="https://${gcCode}.goatcounter.com/count" async src="//gc.zgo.at/count.js"><\/script>
-  <script>setTimeout(function() { window.location.replace("${longUrl}"); }, 400);<\/script>
+  <script>setTimeout(function() { window.location.replace("${longUrl}"); }, 100);<\/script>
   <style>html, body { background-color: transparent !important; opacity: 0; visibility: hidden; margin: 0; padding: 0; height: 100%; }</style>
 </head>
-<body></body>
+<body>
+  <noscript><meta http-equiv="refresh" content="0; url=${longUrl}"></noscript>
+</body>
 </html>`;
 
             const base64Content = btoa(unescape(encodeURIComponent(redirectHtml)));
