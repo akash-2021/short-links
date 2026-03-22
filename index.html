@@ -354,6 +354,16 @@
         link.click();
     }
 
+    // --- Missing Helper Function Added Here ---
+    function getBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result.split(',')[1]); 
+            reader.onerror = error => reject(error);
+        });
+    }
+
     // --- 2. AUTHENTICATION LOGIC ---
     if (localStorage.getItem('sessionExpiry') && Date.now() < parseInt(localStorage.getItem('sessionExpiry'))) showDashboard();
 
