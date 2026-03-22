@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Serverless Link Manager</title>
+    
+    <!-- Bootstrap 5 CSS for Responsive Layout -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- QRious SDK -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+    
+    <style>
+        body { background-color: #f4f6f9; overflow-x: hidden; }
+        
+        /* Dashboard Layout Styles */
+        #dashboard-section { min-height: 100vh; }
+        .sidebar { background-color: #212529; color: #fff; min-height: 100vh; }
+        .sidebar .nav-link { color: rgba(255,255,255,.75); margin-bottom: 5px; border-radius: 6px; padding: 10px 15px; }
+        .sidebar .nav-link:hover { color: #fff; background-color: rgba(255,255,255,.1); }
+        .sidebar .nav-link.active { color: #fff; background-color: #0d6efd; }
+        
+        /* Content Area Styles */
+        .content-area { padding: 30px; }
+        .card { border: none; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .card-header { background-color: #fff; border-bottom: 1px solid #f0f0f0; padding: 15px 20px; font-weight: bold; border-top-left-radius: 10px !important; border-top-right-radius: 10px !important; }
+        .iframe-container { width: 100%; height: 600px; border: none; border-radius: 0.375rem; background: #fff; }
+        
+        /* Mobile Sidebar Adjustments */
+        @media (max-width: 768px) {
+            .sidebar { min-height: auto; padding-bottom: 15px; }
+            #dashboard-section { flex-direction: column !important; }
+            .content-area { padding: 15px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Toast Notification Container (Moved to top right for better visibility in dashboard) -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1055;">
+    <div id="appToast" class="toast align-items-center text-white bg-primary border-0 shadow" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body fw-bold" id="toastMessage">
+                Message goes here.
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+<!-- ==========================================
+     LOGIN / AUTHENTICATION WRAPPER
+     ========================================== -->
+<div id="auth-wrapper" class="container py-5 mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+
+            <!-- Request OTP -->
+            <div id="auth-section" class="card shadow-lg mb-4">
+                <div class="card-body p-4 p-md-5">
+                    <div class="text-center mb-4">
+                        <h2 class="fw-bold">🔒 Secure Login</h2>
+                        <p class="text-muted">Enter your allowed email to access the dashboard.</p>
+                    </div>
+                    <label class="form-label fw-bold">Email Address</label>
+                    <input type="email" id="email" class="form-control form-control-lg mb-4" placeholder="you@example.com">
+                    <button onclick="sendOTP()" class="btn btn-primary btn-lg w-100">Send OTP Code</button>
+                    <div id="auth-status" class="mt-3 text-center fw-bold"></div>
+                </div>
+            </div>
+
+            <!-- Verify OTP -->
+            <div id="otp-section" class="card shadow-lg mb-4 d-none">
+                <div class="card-body p-4 p-md-5">
+                    <div class="text-center mb-4">
+                        <h2 class="fw-bold">🔑 Verify Login</h2>
+                        <p class="text-muted">Check your email for the 6-digit code.</p>
+                    </div>
+                    <label class="form-label fw-bold">One-Time Password (OTP)</label>
+                    <input type="text" id="otp" class="form-control form-control-lg mb-4 text-center letter-spacing-3" placeholder="123456" maxlength="6">
+                    <button onclick="verifyOTP()" class="btn btn-success btn-lg w-100">Verify & Login</button>
+                    <div id="otp-status" class="mt-3 text-center fw-bold"></div>
+                    <button onclick="window.location.reload()" class="btn btn-link w-100 mt-2 text-muted">Go Back</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+<!-- ==========================================
+     MAIN DASHBOARD WRAPPER
+     ========================================== -->
+<div id="dashboard-section" class="d-none d-flex">
+    
+    <!-- SIDEBAR -->
+    <div class="sidebar p-3 d-flex flex-column" style="width: 280px;">
+        <h4 class="text-white text-center py-3 mb-4 border-bottom border-secondary">Link Manager</h4>
+        
+        <ul class="nav nav-pills flex-column mb-auto">
+            <li class="nav-item">
+                <a href="#" class="nav-link active" id="nav-create" onclick="switchView('create')">
+                    ✂️ Create & Manage
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link" id="nav-analytics" onclick="switchView('analytics')">
+                    📊 View Analytics
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link" id="nav-config" onclick="switchView('config')">
+                    ⚙️ Settings & Config
+                </a>
+            </li>
+        </ul>
+        
+        <hr class="border-secondary">
+        <button onclick="logout()" class="btn btn-outline-danger w-100 mt-2">Secure Logout</button>
+    </div>
+
+    <!-- MAIN CONTENT AREA -->
+    <div class="flex-grow-1 content-area">
+        
+        <!-- VIEW: CREATE LINK -->
+        <div id="view-create" class="dashboard-view">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="fw-bold m-0">Create Short Link</h2>
+            </div>
+
+            <div class="row">
+                <div class="col-xl-8">
+                    <div class="card mb-4">
+                        <div class="card-body p-4">
+                            <h5 class="mb-4 text-primary border-bottom pb-2">1. Link Details</h5>
+                            
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Destination (Long URL) <span class="text-danger">*</span></label>
+                                <input type="url" id="longUrl" class="form-control form-control-lg" placeholder="https://example.com/very/long/url">
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Short Alias <span class="text-danger">*</span></label>
+                                <div class="input-group input-group-lg">
+                                    <span class="input-group-text bg-light text-muted" id="domain-prefix">yourdomain.com/</span>
+                                    <input type="text" id="alias" class="form-control" placeholder="promo">
+                                </div>
+                            </div>
+
+                            <h5 class="mt-5 mb-4 text-primary border-bottom pb-2">2. Social Media Preview (Optional)</h5>
+                            <p class="text-muted small mb-3">Customize how this link looks when shared on Twitter, Facebook, LinkedIn, etc.</p>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Meta Title</label>
+                                <input type="text" id="metaTitle" class="form-control" placeholder="My Awesome Event">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Meta Description</label>
+                                <textarea id="metaDesc" class="form-control" rows="2" placeholder="Click here to learn more about this exciting update!"></textarea>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Upload Preview Image</label>
+                                <input type="file" id="metaImage" class="form-control" accept="image/png, image/jpeg, image/webp">
+                            </div>
+
+                            <button onclick="createLink()" class="btn btn-success w-100 btn-lg mt-3 shadow-sm">🚀 Generate Link</button>
+                            <div id="link-status" class="alert d-none mt-3" role="alert"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- QR Code Result Panel -->
+                <div class="col-xl-4">
+                    <div id="qrContainer" class="card text-center d-none sticky-top" style="top: 20px;">
+                        <div class="card-header bg-success text-white border-0">
+                            Success!
+                        </div>
+                        <div class="card-body p-4">
+                            <h5 class="mb-3">Your Short Link is Ready</h5>
+                            <div class="bg-light p-3 rounded mb-4 d-inline-block border">
+                                <canvas id="qrcode"></canvas>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-muted small text-uppercase fw-bold">Share URL</label>
+                                <br>
+                                <a href="#" id="shortLinkDisplay" target="_blank" class="fw-bold text-decoration-none fs-5 word-break"></a>
+                            </div>
+                            <button onclick="copyToClipboard()" class="btn btn-outline-primary w-100">Copy Link</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: ANALYTICS -->
+        <div id="view-analytics" class="dashboard-view d-none">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="fw-bold m-0">Traffic Analytics</h2>
+                <button onclick="loadAnalytics()" class="btn btn-sm btn-outline-secondary">🔄 Refresh</button>
+            </div>
+            <div class="card">
+                <div class="card-body p-0">
+                    <iframe id="analytics-frame" class="iframe-container" src="about:blank"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: CONFIGURATION -->
+        <div id="view-config" class="dashboard-view d-none">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="fw-bold m-0">Settings & Configuration</h2>
+            </div>
+            
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            GitHub Repository Access
+                        </div>
+                        <div class="card-body p-4">
+                            <p class="text-muted small mb-4">Your GitHub details are saved locally in your browser to push redirect files directly to your repository.</p>
+                            
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Personal Access Token (PAT) <span class="text-danger">*</span></label>
+                                <input type="password" id="ghToken" class="form-control" placeholder="ghp_xxxxxxxxxxxxxxx">
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">GitHub Username <span class="text-danger">*</span></label>
+                                    <input type="text" id="ghUser" class="form-control" placeholder="octocat">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Repository Name <span class="text-danger">*</span></label>
+                                    <input type="text" id="ghRepo" class="form-control" placeholder="short-links">
+                                </div>
+                            </div>
+                            
+                            <div class="mb-2 mt-3">
+                                <label class="form-label fw-bold">Custom Domain (Optional)</label>
+                                <input type="text" id="customDomain" class="form-control" placeholder="link.yourdomain.com" onkeyup="updateDomainPrefix()">
+                                <small class="text-muted">If blank, it will default to yourusername.github.io/repo</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            GoatCounter Analytics
+                        </div>
+                        <div class="card-body p-4">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">GoatCounter Code <span class="text-danger">*</span></label>
+                                    <input type="text" id="gcCode" class="form-control" placeholder="mylinks">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Access Token (Secret)</label>
+                                    <input type="password" id="gcToken" class="form-control" placeholder="Required for private dashboard">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button onclick="saveConfig()" class="btn btn-primary btn-lg px-5 shadow-sm">Save All Settings</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    // --- UTILITY: TOAST, VALIDATION & NAVIGATION ---
+    function showToast(message, type = 'success') {
+        const toastEl = document.getElementById('appToast');
+        const toastMessage = document.getElementById('toastMessage');
+        
+        // Convert primary/danger to Bootstrap background classes
+        let bgClass = type === 'success' ? 'bg-success' : (type === 'danger' ? 'bg-danger' : 'bg-primary');
+        toastEl.className = `toast align-items-center text-white ${bgClass} border-0 shadow`;
+        toastMessage.innerHTML = message;
+        
+        const toast = new bootstrap.Toast(toastEl);
+        toast.show();
+    }
+
+    function validateInputs(inputIds) {
+        let isValid = true;
+        inputIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (!el.value.trim()) {
+                el.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                el.classList.remove('is-invalid');
+            }
+        });
+        return isValid;
+    }
+
+    // Clear validation error styling on typing
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', () => input.classList.remove('is-invalid'));
+        });
+    });
+
+    // Handle Dashboard Navigation
+    function switchView(viewName) {
+        // Hide all views
+        document.querySelectorAll('.dashboard-view').forEach(el => el.classList.add('d-none'));
+        // Remove active class from all nav links
+        document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+        
+        // Show target view & set nav active
+        document.getElementById(`view-${viewName}`).classList.remove('d-none');
+        document.getElementById(`nav-${viewName}`).classList.add('active');
+
+        // Trigger specific logic based on view
+        if (viewName === 'analytics') {
+            loadAnalytics();
+        }
+    }
+
+    // Update UI prefix hint based on custom domain
+    function updateDomainPrefix() {
+        const customDomain = document.getElementById('customDomain').value.trim();
+        const user = document.getElementById('ghUser').value.trim();
+        const repo = document.getElementById('ghRepo').value.trim();
+        
+        const prefixEl = document.getElementById('domain-prefix');
+        if (customDomain) {
+            prefixEl.innerText = customDomain + '/';
+        } else if (user && repo) {
+            prefixEl.innerText = `${user}.github.io/${repo}/`;
+        } else {
+            prefixEl.innerText = 'github.io/';
+        }
+    }
+
+    // Copy to clipboard helper
+    function copyToClipboard() {
+        const link = document.getElementById('shortLinkDisplay').href;
+        navigator.clipboard.writeText(link).then(() => {
+            showToast("Link copied to clipboard!", "success");
+        }).catch(err => {
+            showToast("Failed to copy link.", "danger");
+        });
+    }
+
+    // --- 1. INITIALIZE GOOGLE APPS SCRIPT ---
+    // PASTE YOUR DEPLOYED WEB APP URL HERE
+    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxtW8nHrHC9Q9VQQM5BQegByfIf3n1fXLgbgtPvcqilGZr1O_VFdVFZJuEWdW22-8FE/exec';
+    
+    // --- 2. AUTHENTICATION LOGIC ---
+    function checkSession() {
+        const sessionExpiry = localStorage.getItem('sessionExpiry');
+        if (sessionExpiry && Date.now() < parseInt(sessionExpiry)) {
+            showDashboard();
+        }
+    }
+    checkSession();
+
+    async function sendOTP() {
+        if (!validateInputs(['email'])) {
+            showToast("Please enter a valid email address.", "danger");
+            return;
+        }
+
+        if (GAS_WEB_APP_URL.includes('YOUR_SCRIPT_ID')) {
+            showToast("Developer Error: Google Apps Script URL is missing in the code.", "danger");
+            return;
+        }
+
+        const email = document.getElementById('email').value;
+        const status = document.getElementById('auth-status');
+        const btn = document.querySelector('#auth-section button');
+        
+        status.innerHTML = '<span class="text-primary">Communicating with server...</span>';
+        btn.disabled = true;
+        
+        try {
+            const response = await fetch(GAS_WEB_APP_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'sendOTP', email: email }),
+                redirect: 'follow' 
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                status.innerHTML = `<span class="text-danger">${result.message}</span>`;
+                showToast(result.message, "danger");
+                btn.disabled = false;
+            } else {
+                status.innerHTML = "";
+                showToast("OTP sent to your email!", "success");
+                document.getElementById('auth-wrapper').classList.remove('mt-5');
+                document.getElementById('auth-section').classList.add('d-none');
+                document.getElementById('otp-section').classList.remove('d-none');
+            }
+        } catch (error) {
+            status.innerHTML = `<span class="text-danger small">Network Error. Check console or verify Apps Script deployment settings.</span>`;
+            showToast("Failed to connect to authentication server.", "danger");
+            btn.disabled = false;
+        }
+    }
+
+    async function verifyOTP() {
+        if (!validateInputs(['otp'])) {
+            showToast("Please enter the OTP code.", "danger");
+            return;
+        }
+
+        const email = document.getElementById('email').value;
+        const token = document.getElementById('otp').value;
+        const status = document.getElementById('otp-status');
+        const btn = document.querySelector('#otp-section button');
+        
+        status.innerHTML = '<span class="text-primary">Verifying code...</span>';
+        btn.disabled = true;
+
+        try {
+            const response = await fetch(GAS_WEB_APP_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'verifyOTP', email: email, otp: token }),
+                redirect: 'follow'
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                status.innerHTML = `<span class="text-danger">${result.message}</span>`;
+                showToast(result.message, "danger");
+                btn.disabled = false;
+            } else {
+                // Set session to expire in 24 hours
+                localStorage.setItem('sessionExpiry', Date.now() + (24 * 60 * 60 * 1000));
+                showToast("Login successful!", "success");
+                showDashboard();
+            }
+        } catch (error) {
+            status.innerHTML = `<span class="text-danger small">Network Error during verification.</span>`;
+            showToast("Failed to verify OTP.", "danger");
+            btn.disabled = false;
+        }
+    }
+
+    function logout() {
+        localStorage.removeItem('sessionExpiry');
+        window.location.reload();
+    }
+
+    // --- 3. UI LOGIC & CONFIGURATION ---
+    function showDashboard() {
+        document.getElementById('auth-wrapper').classList.add('d-none');
+        document.getElementById('dashboard-section').classList.remove('d-none');
+        
+        // Load saved settings into config inputs
+        document.getElementById('ghToken').value = localStorage.getItem('ghToken') || '';
+        document.getElementById('ghUser').value = localStorage.getItem('ghUser') || '';
+        document.getElementById('ghRepo').value = localStorage.getItem('ghRepo') || '';
+        document.getElementById('gcCode').value = localStorage.getItem('gcCode') || '';
+        document.getElementById('gcToken').value = localStorage.getItem('gcToken') || '';
+        document.getElementById('customDomain').value = localStorage.getItem('customDomain') || '';
+        
+        updateDomainPrefix();
+        switchView('create'); // Default to Create view
+    }
+
+    function saveConfig() {
+        // Validate config before saving
+        const reqConfig = ['ghToken', 'ghUser', 'ghRepo', 'gcCode'];
+        if (!validateInputs(reqConfig)) {
+            showToast("Please fill out all required configuration fields.", "danger");
+            return;
+        }
+
+        localStorage.setItem('ghToken', document.getElementById('ghToken').value.trim());
+        localStorage.setItem('ghUser', document.getElementById('ghUser').value.trim());
+        localStorage.setItem('ghRepo', document.getElementById('ghRepo').value.trim());
+        localStorage.setItem('gcCode', document.getElementById('gcCode').value.trim());
+        localStorage.setItem('gcToken', document.getElementById('gcToken').value.trim());
+        localStorage.setItem('customDomain', document.getElementById('customDomain').value.trim());
+        
+        updateDomainPrefix();
+        showToast("Configuration saved securely in your browser!", "success");
+    }
+
+    function loadAnalytics() {
+        const gcCode = localStorage.getItem('gcCode') || document.getElementById('gcCode').value.trim();
+        const gcToken = localStorage.getItem('gcToken') || document.getElementById('gcToken').value.trim();
+        const frame = document.getElementById('analytics-frame');
+        
+        if (gcCode) {
+            let frameUrl = `https://${gcCode}.goatcounter.com`;
+            if (gcToken) {
+                frameUrl += `?access-token=${gcToken}&hideui=1`;
+            }
+            // Only reload if URL changed or frame is empty to prevent unnecessary refreshes
+            if (frame.src !== frameUrl) {
+                frame.src = frameUrl;
+            }
+        } else {
+            // Show user a prompt inside iframe if config is missing
+            frame.srcdoc = `<div style="font-family:sans-serif; text-align:center; padding:50px; color:#666;">
+                            <h3>Analytics Not Configured</h3>
+                            <p>Please enter your GoatCounter details in the Settings section.</p>
+                            </div>`;
+        }
+    }
+
+    // --- 4. IMAGE PROCESSING HELPER ---
+    function getBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result.split(',')[1]); 
+            reader.onerror = error => reject(error);
+        });
+    }
+
+    // --- 5. GITHUB API LOGIC (LINK CREATION) ---
+    async function createLink() {
+        // Validate fields
+        if (!validateInputs(['longUrl', 'alias'])) {
+            showToast("Please provide a destination URL and an alias.", "danger");
+            return;
+        }
+
+        // Grab values (prefer localStorage values to ensure user saved them)
+        const token = localStorage.getItem('ghToken');
+        const user = localStorage.getItem('ghUser');
+        const repo = localStorage.getItem('ghRepo');
+        const gcCode = localStorage.getItem('gcCode');
+        const customDomain = localStorage.getItem('customDomain');
+        
+        if (!token || !user || !repo || !gcCode) {
+            showToast("Configuration missing. Please complete the Settings section first.", "danger");
+            switchView('config');
+            return;
+        }
+
+        const longUrl = document.getElementById('longUrl').value;
+        const alias = document.getElementById('alias').value.replace(/[^a-zA-Z0-9-_]/g, ''); 
+        const metaTitle = document.getElementById('metaTitle').value || 'Redirecting...';
+        const metaDesc = document.getElementById('metaDesc').value || '';
+        const imageFile = document.getElementById('metaImage').files[0];
+        
+        const statusDiv = document.getElementById('link-status');
+        const createBtn = document.querySelector('#view-create button.btn-success');
+        
+        // Reset UI
+        statusDiv.classList.remove('d-none', 'alert-danger', 'alert-success', 'alert-info');
+        document.getElementById('qrContainer').classList.add('d-none');
+        createBtn.disabled = true;
+
+        let baseUrl = customDomain ? `https://${customDomain}` : `https://${user}.github.io/${repo}`;
+        const finalDomain = `${baseUrl}/${alias}`; 
+        let finalImageUrl = '';
+
+        try {
+            statusDiv.classList.add('alert-info');
+            statusDiv.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Initiating...';
+            
+            // Upload Image to GitHub (if one is selected)
+            if (imageFile) {
+                statusDiv.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Uploading social preview image...';
+                const ext = imageFile.name.split('.').pop();
+                const imageName = `social-image.${ext}`;
+                const imageBase64 = await getBase64(imageFile);
+                
+                const imageApiUrl = `https://api.github.com/repos/${user}/${repo}/contents/${alias}/${imageName}`;
+                
+                const imageRes = await fetch(imageApiUrl, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: `Upload image for /${alias}`, content: imageBase64 })
+                });
+
+                if (!imageRes.ok && imageRes.status !== 422) {
+                    throw new Error("Failed to upload image. Verify your GitHub PAT permissions.");
+                }
+                finalImageUrl = `${baseUrl}/${alias}/${imageName}`;
+            }
+
+            statusDiv.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Generating redirect rules...';
+
+            const redirectHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${metaTitle}</title>
+  
+  <meta name="title" content="${metaTitle}">
+  <meta name="description" content="${metaDesc}">
+
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="${finalDomain}">
+  <meta property="og:title" content="${metaTitle}">
+  <meta property="og:description" content="${metaDesc}">
+  ${finalImageUrl ? `<meta property="og:image" content="${finalImageUrl}">` : ''}
+
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:url" content="${finalDomain}">
+  <meta property="twitter:title" content="${metaTitle}">
+  <meta property="twitter:description" content="${metaDesc}">
+  ${finalImageUrl ? `<meta property="twitter:image" content="${finalImageUrl}">` : ''}
+
+  <meta http-equiv="refresh" content="1; url=${longUrl}">
+  
+  <script data-goatcounter="https://${gcCode}.goatcounter.com/count" async src="//gc.zgo.at/count.js"><\/script>
+  <script>
+    setTimeout(function() { window.location.replace("${longUrl}"); }, 1200);
+  <\/script>
+</head>
+<body>
+  <p>Redirecting you...</p>
+</body>
+</html>`;
+
+            const base64Content = btoa(unescape(encodeURIComponent(redirectHtml)));
+            const apiUrl = `https://api.github.com/repos/${user}/${repo}/contents/${alias}/index.html`;
+
+            statusDiv.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Committing to GitHub...';
+
+            // Upload the index.html file
+            const response = await fetch(apiUrl, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: `Create link: /${alias}`, content: base64Content })
+            });
+
+            if (response.ok || response.status === 422) { 
+                statusDiv.classList.remove('alert-info');
+                statusDiv.classList.add('alert-success');
+                statusDiv.innerHTML = `<strong>🎉 Success!</strong> Your link has been created. GitHub Pages will make it live in ~30-60 seconds.`;
+                showToast("Short link generated successfully!", "success");
+                
+                // Show QR & Link details
+                document.getElementById('qrContainer').classList.remove('d-none');
+                new QRious({ element: document.getElementById('qrcode'), value: finalDomain, size: 200 });
+                
+                const linkDisplay = document.getElementById('shortLinkDisplay');
+                linkDisplay.href = finalDomain;
+                linkDisplay.innerText = finalDomain;
+                
+                // Clear the form fields for the next link
+                document.getElementById('longUrl').value = '';
+                document.getElementById('alias').value = '';
+                document.getElementById('metaTitle').value = '';
+                document.getElementById('metaDesc').value = '';
+                document.getElementById('metaImage').value = '';
+                
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.message);
+            }
+        } catch (error) {
+            statusDiv.classList.remove('alert-info');
+            statusDiv.classList.add('alert-danger');
+            statusDiv.innerHTML = `<strong>Error:</strong> ${error.message}`;
+            showToast(`Creation failed: ${error.message}`, "danger");
+        } finally {
+            createBtn.disabled = false;
+        }
+    }
+</script>
+
+</body>
+</html>
