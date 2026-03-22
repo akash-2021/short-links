@@ -30,6 +30,10 @@
         .card-header { background-color: #fff; border-bottom: 1px solid #f0f0f0; padding: 15px 20px; font-weight: bold; border-top-left-radius: 10px !important; border-top-right-radius: 10px !important; }
         .iframe-container { width: 100%; height: 600px; border: none; border-radius: 0.375rem; background: #fff; }
         
+        /* Utility */
+        .word-break { word-break: break-all; }
+        .badge-live { font-size: 0.9rem; border-radius: 20px; }
+
         /* Mobile Sidebar Adjustments */
         @media (max-width: 768px) {
             .sidebar { min-height: auto; padding-bottom: 15px; }
@@ -40,14 +44,12 @@
 </head>
 <body>
 
-<!-- Toast Notification Container (Moved to top right for better visibility in dashboard) -->
+<!-- Toast Notification Container -->
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1055;">
     <div id="appToast" class="toast align-items-center text-white bg-primary border-0 shadow" role="alert" aria-live="assertive" aria-atomic="true">
         <div class="d-flex">
-            <div class="toast-body fw-bold" id="toastMessage">
-                Message goes here.
-            </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            <div class="toast-body fw-bold" id="toastMessage">Message goes here.</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
         </div>
     </div>
 </div>
@@ -58,7 +60,6 @@
 <div id="auth-wrapper" class="container py-5 mt-5">
     <div class="row justify-content-center">
         <div class="col-md-6 col-lg-5">
-
             <!-- Request OTP -->
             <div id="auth-section" class="card shadow-lg mb-4">
                 <div class="card-body p-4 p-md-5">
@@ -87,7 +88,6 @@
                     <button onclick="window.location.reload()" class="btn btn-link w-100 mt-2 text-muted">Go Back</button>
                 </div>
             </div>
-
         </div>
     </div>
 </div>
@@ -104,19 +104,16 @@
         
         <ul class="nav nav-pills flex-column mb-auto">
             <li class="nav-item">
-                <a href="#" class="nav-link active" id="nav-create" onclick="switchView('create')">
-                    ✂️ Create & Manage
-                </a>
+                <a href="#" class="nav-link active" id="nav-create" onclick="switchView('create')">✂️ Create Link</a>
             </li>
             <li class="nav-item">
-                <a href="#" class="nav-link" id="nav-analytics" onclick="switchView('analytics')">
-                    📊 View Analytics
-                </a>
+                <a href="#" class="nav-link" id="nav-manage" onclick="switchView('manage')">📂 Manage Links</a>
             </li>
             <li class="nav-item">
-                <a href="#" class="nav-link" id="nav-config" onclick="switchView('config')">
-                    ⚙️ Settings & Config
-                </a>
+                <a href="#" class="nav-link" id="nav-analytics" onclick="switchView('analytics')">📊 Analytics</a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link" id="nav-config" onclick="switchView('config')">⚙️ Settings</a>
             </li>
         </ul>
         
@@ -145,11 +142,12 @@
                             </div>
                             
                             <div class="mb-4">
-                                <label class="form-label fw-bold">Short Alias <span class="text-danger">*</span></label>
+                                <label class="form-label fw-bold">Short Alias</label>
                                 <div class="input-group input-group-lg">
                                     <span class="input-group-text bg-light text-muted" id="domain-prefix">yourdomain.com/</span>
-                                    <input type="text" id="alias" class="form-control" placeholder="promo">
+                                    <input type="text" id="alias" class="form-control" placeholder="Leave blank for random">
                                 </div>
+                                <small class="text-muted">If left blank, a random 6-character code will be generated.</small>
                             </div>
 
                             <h5 class="mt-5 mb-4 text-primary border-bottom pb-2">2. Social Media Preview (Optional)</h5>
@@ -162,7 +160,7 @@
                             
                             <div class="mb-3">
                                 <label class="form-label fw-bold">Meta Description</label>
-                                <textarea id="metaDesc" class="form-control" rows="2" placeholder="Click here to learn more about this exciting update!"></textarea>
+                                <textarea id="metaDesc" class="form-control" rows="2" placeholder="Click here to learn more!"></textarea>
                             </div>
                             
                             <div class="mb-4">
@@ -176,24 +174,62 @@
                     </div>
                 </div>
 
-                <!-- QR Code Result Panel -->
+                <!-- QR Code & Success Panel -->
                 <div class="col-xl-4">
                     <div id="qrContainer" class="card text-center d-none sticky-top" style="top: 20px;">
-                        <div class="card-header bg-success text-white border-0">
-                            Success!
+                        <div class="card-header bg-success text-white border-0 py-3">
+                            <h5 class="m-0">Link Created Successfully!</h5>
                         </div>
                         <div class="card-body p-4">
-                            <h5 class="mb-3">Your Short Link is Ready</h5>
-                            <div class="bg-light p-3 rounded mb-4 d-inline-block border">
+                            
+                            <div class="mb-4" id="live-status-container">
+                                <span id="live-status-badge" class="badge bg-light text-warning border border-warning px-3 py-2 badge-live">
+                                    <span class="spinner-grow spinner-grow-sm me-1"></span> Building...
+                                </span>
+                            </div>
+
+                            <div class="bg-light p-3 rounded mb-3 d-inline-block border">
                                 <canvas id="qrcode"></canvas>
                             </div>
+                            
                             <div class="mb-3">
                                 <label class="form-label text-muted small text-uppercase fw-bold">Share URL</label>
                                 <br>
                                 <a href="#" id="shortLinkDisplay" target="_blank" class="fw-bold text-decoration-none fs-5 word-break"></a>
                             </div>
-                            <button onclick="copyToClipboard()" class="btn btn-outline-primary w-100">Copy Link</button>
+                            
+                            <div class="d-grid gap-2">
+                                <button onclick="copyToClipboard()" class="btn btn-outline-primary">📋 Copy Link</button>
+                                <button onclick="downloadQR()" class="btn btn-outline-secondary">⬇️ Download QR Code</button>
+                            </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: MANAGE LINKS -->
+        <div id="view-manage" class="dashboard-view d-none">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="fw-bold m-0">📂 Manage Links</h2>
+                <button onclick="loadLinks()" class="btn btn-sm btn-outline-primary">🔄 Refresh List</button>
+            </div>
+            
+            <div class="card shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-4 py-3">Alias</th>
+                                    <th class="py-3">Direct URL</th>
+                                    <th class="text-end pe-4 py-3">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="links-table-body">
+                                <tr><td colspan="3" class="text-center py-5 text-muted">Click 'Refresh List' to load your links.</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -203,9 +239,9 @@
         <div id="view-analytics" class="dashboard-view d-none">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2 class="fw-bold m-0">Traffic Analytics</h2>
-                <button onclick="loadAnalytics()" class="btn btn-sm btn-outline-secondary">🔄 Refresh</button>
+                <button onclick="loadAnalytics()" class="btn btn-sm btn-outline-primary">🔄 Refresh Data</button>
             </div>
-            <div class="card">
+            <div class="card shadow-sm">
                 <div class="card-body p-0">
                     <iframe id="analytics-frame" class="iframe-container" src="about:blank"></iframe>
                 </div>
@@ -220,10 +256,8 @@
             
             <div class="row">
                 <div class="col-lg-8">
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            GitHub Repository Access
-                        </div>
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-header">GitHub Repository Access</div>
                         <div class="card-body p-4">
                             <p class="text-muted small mb-4">Your GitHub details are saved locally in your browser to push redirect files directly to your repository.</p>
                             
@@ -246,15 +280,13 @@
                             <div class="mb-2 mt-3">
                                 <label class="form-label fw-bold">Custom Domain (Optional)</label>
                                 <input type="text" id="customDomain" class="form-control" placeholder="link.yourdomain.com" onkeyup="updateDomainPrefix()">
-                                <small class="text-muted">If blank, it will default to yourusername.github.io/repo</small>
+                                <small class="text-muted">If blank, defaults to yourusername.github.io/repo</small>
                             </div>
                         </div>
                     </div>
 
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            GoatCounter Analytics
-                        </div>
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-header">GoatCounter Analytics</div>
                         <div class="card-body p-4">
                             <div class="row">
                                 <div class="col-md-6 mb-3">
@@ -278,107 +310,82 @@
 </div>
 
 <script>
+    // --- 1. INITIALIZE GOOGLE APPS SCRIPT ---
+    // PASTE YOUR DEPLOYED WEB APP URL HERE
+    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxtW8nHrHC9Q9VQQM5BQegByfIf3n1fXLgbgtPvcqilGZr1O_VFdVFZJuEWdW22-8FE/exec';
+
     // --- UTILITY: TOAST, VALIDATION & NAVIGATION ---
     function showToast(message, type = 'success') {
         const toastEl = document.getElementById('appToast');
         const toastMessage = document.getElementById('toastMessage');
-        
-        // Convert primary/danger to Bootstrap background classes
         let bgClass = type === 'success' ? 'bg-success' : (type === 'danger' ? 'bg-danger' : 'bg-primary');
         toastEl.className = `toast align-items-center text-white ${bgClass} border-0 shadow`;
         toastMessage.innerHTML = message;
-        
-        const toast = new bootstrap.Toast(toastEl);
-        toast.show();
+        new bootstrap.Toast(toastEl).show();
     }
 
     function validateInputs(inputIds) {
         let isValid = true;
         inputIds.forEach(id => {
             const el = document.getElementById(id);
-            if (!el.value.trim()) {
-                el.classList.add('is-invalid');
-                isValid = false;
-            } else {
-                el.classList.remove('is-invalid');
-            }
+            if (!el.value.trim()) { el.classList.add('is-invalid'); isValid = false; } 
+            else { el.classList.remove('is-invalid'); }
         });
         return isValid;
     }
 
-    // Clear validation error styling on typing
     document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('input').forEach(input => {
             input.addEventListener('input', () => input.classList.remove('is-invalid'));
         });
     });
 
-    // Handle Dashboard Navigation
     function switchView(viewName) {
-        // Hide all views
         document.querySelectorAll('.dashboard-view').forEach(el => el.classList.add('d-none'));
-        // Remove active class from all nav links
         document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
         
-        // Show target view & set nav active
         document.getElementById(`view-${viewName}`).classList.remove('d-none');
         document.getElementById(`nav-${viewName}`).classList.add('active');
 
-        // Trigger specific logic based on view
-        if (viewName === 'analytics') {
-            loadAnalytics();
-        }
+        if (viewName === 'analytics') loadAnalytics();
+        if (viewName === 'manage') loadLinks();
     }
 
-    // Update UI prefix hint based on custom domain
     function updateDomainPrefix() {
         const customDomain = document.getElementById('customDomain').value.trim();
         const user = document.getElementById('ghUser').value.trim();
         const repo = document.getElementById('ghRepo').value.trim();
         
         const prefixEl = document.getElementById('domain-prefix');
-        if (customDomain) {
-            prefixEl.innerText = customDomain + '/';
-        } else if (user && repo) {
-            prefixEl.innerText = `${user}.github.io/${repo}/`;
-        } else {
-            prefixEl.innerText = 'github.io/';
-        }
+        if (customDomain) prefixEl.innerText = customDomain + '/';
+        else if (user && repo) prefixEl.innerText = `${user}.github.io/${repo}/`;
+        else prefixEl.innerText = 'github.io/';
     }
 
-    // Copy to clipboard helper
     function copyToClipboard() {
         const link = document.getElementById('shortLinkDisplay').href;
-        navigator.clipboard.writeText(link).then(() => {
-            showToast("Link copied to clipboard!", "success");
-        }).catch(err => {
-            showToast("Failed to copy link.", "danger");
-        });
+        navigator.clipboard.writeText(link).then(() => showToast("Link copied to clipboard!", "success"))
+        .catch(err => showToast("Failed to copy link.", "danger"));
     }
 
-    // --- 1. INITIALIZE GOOGLE APPS SCRIPT ---
-    // PASTE YOUR DEPLOYED WEB APP URL HERE
-    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxtW8nHrHC9Q9VQQM5BQegByfIf3n1fXLgbgtPvcqilGZr1O_VFdVFZJuEWdW22-8FE/exec';
-    
+    function downloadQR() {
+        const canvas = document.getElementById('qrcode');
+        const link = document.createElement('a');
+        link.download = 'short-link-qr.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    }
+
     // --- 2. AUTHENTICATION LOGIC ---
     function checkSession() {
         const sessionExpiry = localStorage.getItem('sessionExpiry');
-        if (sessionExpiry && Date.now() < parseInt(sessionExpiry)) {
-            showDashboard();
-        }
+        if (sessionExpiry && Date.now() < parseInt(sessionExpiry)) showDashboard();
     }
     checkSession();
 
     async function sendOTP() {
-        if (!validateInputs(['email'])) {
-            showToast("Please enter a valid email address.", "danger");
-            return;
-        }
-
-        if (GAS_WEB_APP_URL.includes('YOUR_SCRIPT_ID')) {
-            showToast("Developer Error: Google Apps Script URL is missing in the code.", "danger");
-            return;
-        }
+        if (!validateInputs(['email'])) return showToast("Please enter a valid email address.", "danger");
+        if (GAS_WEB_APP_URL.includes('YOUR_SCRIPT_ID')) return showToast("Google Apps Script URL is missing.", "danger");
 
         const email = document.getElementById('email').value;
         const status = document.getElementById('auth-status');
@@ -400,7 +407,6 @@
             if (!result.success) {
                 status.innerHTML = `<span class="text-danger">${result.message}</span>`;
                 showToast(result.message, "danger");
-                btn.disabled = false;
             } else {
                 status.innerHTML = "";
                 showToast("OTP sent to your email!", "success");
@@ -409,17 +415,13 @@
                 document.getElementById('otp-section').classList.remove('d-none');
             }
         } catch (error) {
-            status.innerHTML = `<span class="text-danger small">Network Error. Check console or verify Apps Script deployment settings.</span>`;
+            status.innerHTML = `<span class="text-danger small">Network Error. Check console.</span>`;
             showToast("Failed to connect to authentication server.", "danger");
-            btn.disabled = false;
-        }
+        } finally { btn.disabled = false; }
     }
 
     async function verifyOTP() {
-        if (!validateInputs(['otp'])) {
-            showToast("Please enter the OTP code.", "danger");
-            return;
-        }
+        if (!validateInputs(['otp'])) return showToast("Please enter the OTP code.", "danger");
 
         const email = document.getElementById('email').value;
         const token = document.getElementById('otp').value;
@@ -442,9 +444,7 @@
             if (!result.success) {
                 status.innerHTML = `<span class="text-danger">${result.message}</span>`;
                 showToast(result.message, "danger");
-                btn.disabled = false;
             } else {
-                // Set session to expire in 24 hours
                 localStorage.setItem('sessionExpiry', Date.now() + (24 * 60 * 60 * 1000));
                 showToast("Login successful!", "success");
                 showDashboard();
@@ -452,8 +452,7 @@
         } catch (error) {
             status.innerHTML = `<span class="text-danger small">Network Error during verification.</span>`;
             showToast("Failed to verify OTP.", "danger");
-            btn.disabled = false;
-        }
+        } finally { btn.disabled = false; }
     }
 
     function logout() {
@@ -466,7 +465,6 @@
         document.getElementById('auth-wrapper').classList.add('d-none');
         document.getElementById('dashboard-section').classList.remove('d-none');
         
-        // Load saved settings into config inputs
         document.getElementById('ghToken').value = localStorage.getItem('ghToken') || '';
         document.getElementById('ghUser').value = localStorage.getItem('ghUser') || '';
         document.getElementById('ghRepo').value = localStorage.getItem('ghRepo') || '';
@@ -475,15 +473,12 @@
         document.getElementById('customDomain').value = localStorage.getItem('customDomain') || '';
         
         updateDomainPrefix();
-        switchView('create'); // Default to Create view
+        switchView('create'); 
     }
 
     function saveConfig() {
-        // Validate config before saving
-        const reqConfig = ['ghToken', 'ghUser', 'ghRepo', 'gcCode'];
-        if (!validateInputs(reqConfig)) {
-            showToast("Please fill out all required configuration fields.", "danger");
-            return;
+        if (!validateInputs(['ghToken', 'ghUser', 'ghRepo', 'gcCode'])) {
+            return showToast("Please fill out all required configuration fields.", "danger");
         }
 
         localStorage.setItem('ghToken', document.getElementById('ghToken').value.trim());
@@ -494,7 +489,7 @@
         localStorage.setItem('customDomain', document.getElementById('customDomain').value.trim());
         
         updateDomainPrefix();
-        showToast("Configuration saved securely in your browser!", "success");
+        showToast("Configuration saved securely!", "success");
     }
 
     function loadAnalytics() {
@@ -503,24 +498,128 @@
         const frame = document.getElementById('analytics-frame');
         
         if (gcCode) {
-            let frameUrl = `https://${gcCode}.goatcounter.com`;
-            if (gcToken) {
-                frameUrl += `?access-token=${gcToken}&hideui=1`;
-            }
-            // Only reload if URL changed or frame is empty to prevent unnecessary refreshes
-            if (frame.src !== frameUrl) {
-                frame.src = frameUrl;
-            }
+            let frameUrl = `https://${gcCode}.goatcounter.com${gcToken ? `?access-token=${gcToken}&hideui=1` : ''}`;
+            if (frame.src !== frameUrl) frame.src = frameUrl;
         } else {
-            // Show user a prompt inside iframe if config is missing
-            frame.srcdoc = `<div style="font-family:sans-serif; text-align:center; padding:50px; color:#666;">
-                            <h3>Analytics Not Configured</h3>
-                            <p>Please enter your GoatCounter details in the Settings section.</p>
-                            </div>`;
+            frame.srcdoc = `<div style="text-align:center; padding:50px; font-family:sans-serif;"><h3>Not Configured</h3></div>`;
         }
     }
 
-    // --- 4. IMAGE PROCESSING HELPER ---
+    // --- 4. MANAGE & DELETE LINKS LOGIC ---
+    async function loadLinks() {
+        const tbody = document.getElementById('links-table-body');
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center py-5"><span class="spinner-border text-primary"></span><br><span class="mt-2 d-inline-block">Loading from GitHub...</span></td></tr>';
+        
+        const token = localStorage.getItem('ghToken');
+        const user = localStorage.getItem('ghUser');
+        const repo = localStorage.getItem('ghRepo');
+        const customDomain = localStorage.getItem('customDomain');
+        
+        if (!token || !user || !repo) {
+            return tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-danger">Configuration missing. Please set up Settings.</td></tr>';
+        }
+
+        try {
+            const response = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error("Failed to fetch repository data. Check your PAT token.");
+            
+            const files = await response.json();
+            const dirs = files.filter(f => f.type === 'dir'); // Links are stored as directories
+            
+            if (dirs.length === 0) {
+                return tbody.innerHTML = '<tr><td colspan="3" class="text-center py-5 text-muted">No links found yet. Go create one!</td></tr>';
+            }
+
+            let baseUrl = customDomain ? `https://${customDomain}` : `https://${user}.github.io/${repo}`;
+            tbody.innerHTML = '';
+            
+            dirs.forEach(dir => {
+                const alias = dir.name;
+                const finalUrl = `${baseUrl}/${alias}`;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="ps-4 fw-bold text-primary">/${alias}</td>
+                    <td><a href="${finalUrl}" target="_blank" class="text-decoration-none text-muted">${finalUrl}</a></td>
+                    <td class="text-end pe-4">
+                        <button class="btn btn-sm btn-outline-danger shadow-sm" onclick="deleteLink('${alias}')" id="btn-del-${alias}">🗑️ Delete</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (error) {
+            tbody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-danger">Error: ${error.message}</td></tr>`;
+        }
+    }
+
+    async function deleteLink(alias) {
+        if (!confirm(`Are you sure you want to delete /${alias}? This will break the link immediately.`)) return;
+        
+        const btn = document.getElementById(`btn-del-${alias}`);
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        btn.disabled = true;
+
+        const token = localStorage.getItem('ghToken');
+        const user = localStorage.getItem('ghUser');
+        const repo = localStorage.getItem('ghRepo');
+
+        try {
+            // 1. Get folder contents to find file SHAs (needed for deletion)
+            const res = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/${alias}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (!res.ok) throw new Error("Could not read link directory.");
+            const files = await res.json();
+            
+            // 2. Delete every file inside the alias folder (index.html, images, etc.)
+            for (let file of files) {
+                await fetch(`https://api.github.com/repos/${user}/${repo}/contents/${file.path}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: `Deleted link /${alias}`, sha: file.sha })
+                });
+            }
+            
+            showToast(`Link /${alias} successfully deleted.`, "success");
+            loadLinks(); // Refresh table
+        } catch (error) {
+            showToast(`Error deleting link: ${error.message}`, "danger");
+            btn.innerHTML = '🗑️ Delete';
+            btn.disabled = false;
+        }
+    }
+
+    // --- 5. LIVE STATUS POLLING ---
+    function pollLiveStatus(url) {
+        const statusBadge = document.getElementById('live-status-badge');
+        statusBadge.innerHTML = '<span class="spinner-grow spinner-grow-sm me-1"></span> Building...';
+        statusBadge.className = 'badge bg-light text-warning border border-warning px-3 py-2 badge-live';
+
+        let attempts = 0;
+        const interval = setInterval(async () => {
+            attempts++;
+            try {
+                // Fetch with cache-busting to bypass browser caches during build
+                const check = await fetch(url + '?cb=' + Date.now(), { method: 'GET', mode: 'no-cors' });
+                // If it resolves without hard failing, we assume it's live (GitHub Pages returns quickly once built)
+                if (attempts > 3 || check.type === 'opaque' || check.ok) {
+                    clearInterval(interval);
+                    statusBadge.innerHTML = '🟢 Live & Active';
+                    statusBadge.className = 'badge bg-light text-success border border-success px-3 py-2 badge-live';
+                }
+            } catch (e) { }
+            
+            if (attempts >= 12) { // Stop checking after ~1 minute
+                clearInterval(interval);
+                statusBadge.innerHTML = '⏱️ Build delayed (Check back later)';
+                statusBadge.className = 'badge bg-light text-secondary border border-secondary px-3 py-2 badge-live';
+            }
+        }, 5000); // Check every 5 seconds
+    }
+
+    // --- 6. GITHUB API LOGIC (LINK CREATION) ---
     function getBase64(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -530,15 +629,9 @@
         });
     }
 
-    // --- 5. GITHUB API LOGIC (LINK CREATION) ---
     async function createLink() {
-        // Validate fields
-        if (!validateInputs(['longUrl', 'alias'])) {
-            showToast("Please provide a destination URL and an alias.", "danger");
-            return;
-        }
+        if (!validateInputs(['longUrl'])) return showToast("Please provide a destination URL.", "danger");
 
-        // Grab values (prefer localStorage values to ensure user saved them)
         const token = localStorage.getItem('ghToken');
         const user = localStorage.getItem('ghUser');
         const repo = localStorage.getItem('ghRepo');
@@ -546,13 +639,18 @@
         const customDomain = localStorage.getItem('customDomain');
         
         if (!token || !user || !repo || !gcCode) {
-            showToast("Configuration missing. Please complete the Settings section first.", "danger");
-            switchView('config');
-            return;
+            showToast("Configuration missing. Please save Settings first.", "danger");
+            return switchView('config');
         }
 
         const longUrl = document.getElementById('longUrl').value;
-        const alias = document.getElementById('alias').value.replace(/[^a-zA-Z0-9-_]/g, ''); 
+        let alias = document.getElementById('alias').value.replace(/[^a-zA-Z0-9-_]/g, ''); 
+        
+        // OPTIONAL ALIAS: Generate random 6 character alias if blank
+        if (!alias) {
+            alias = Math.random().toString(36).substring(2, 8);
+        }
+        
         const metaTitle = document.getElementById('metaTitle').value || 'Redirecting...';
         const metaDesc = document.getElementById('metaDesc').value || '';
         const imageFile = document.getElementById('metaImage').files[0];
@@ -560,7 +658,6 @@
         const statusDiv = document.getElementById('link-status');
         const createBtn = document.querySelector('#view-create button.btn-success');
         
-        // Reset UI
         statusDiv.classList.remove('d-none', 'alert-danger', 'alert-success', 'alert-info');
         document.getElementById('qrContainer').classList.add('d-none');
         createBtn.disabled = true;
@@ -571,70 +668,71 @@
 
         try {
             statusDiv.classList.add('alert-info');
-            statusDiv.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Initiating...';
             
-            // Upload Image to GitHub (if one is selected)
+            // --- ALIAS AVAILABILITY CHECK ---
+            statusDiv.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Checking alias availability...';
+            const checkRes = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/${alias}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (checkRes.status === 200) {
+                throw new Error(`The alias "/${alias}" is already taken! Please choose another one.`);
+            }
+
+            // --- IMAGE UPLOAD ---
             if (imageFile) {
-                statusDiv.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Uploading social preview image...';
+                statusDiv.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Uploading preview image...';
                 const ext = imageFile.name.split('.').pop();
                 const imageName = `social-image.${ext}`;
                 const imageBase64 = await getBase64(imageFile);
                 
                 const imageApiUrl = `https://api.github.com/repos/${user}/${repo}/contents/${alias}/${imageName}`;
-                
                 const imageRes = await fetch(imageApiUrl, {
                     method: 'PUT',
                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: `Upload image for /${alias}`, content: imageBase64 })
                 });
 
-                if (!imageRes.ok && imageRes.status !== 422) {
-                    throw new Error("Failed to upload image. Verify your GitHub PAT permissions.");
-                }
+                if (!imageRes.ok) throw new Error("Failed to upload image.");
                 finalImageUrl = `${baseUrl}/${alias}/${imageName}`;
             }
 
-            statusDiv.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Generating redirect rules...';
+            // --- HTML REDIRECT GENERATION ---
+            statusDiv.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Creating redirect rules...';
 
+            // THE FIX: Invisible Body & instant execution for seamless redirects
             const redirectHtml = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <title>${metaTitle}</title>
-  
   <meta name="title" content="${metaTitle}">
   <meta name="description" content="${metaDesc}">
-
   <meta property="og:type" content="website">
   <meta property="og:url" content="${finalDomain}">
   <meta property="og:title" content="${metaTitle}">
   <meta property="og:description" content="${metaDesc}">
   ${finalImageUrl ? `<meta property="og:image" content="${finalImageUrl}">` : ''}
-
   <meta property="twitter:card" content="summary_large_image">
   <meta property="twitter:url" content="${finalDomain}">
   <meta property="twitter:title" content="${metaTitle}">
   <meta property="twitter:description" content="${metaDesc}">
   ${finalImageUrl ? `<meta property="twitter:image" content="${finalImageUrl}">` : ''}
-
-  <meta http-equiv="refresh" content="1; url=${longUrl}">
   
+  <meta http-equiv="refresh" content="1; url=${longUrl}">
   <script data-goatcounter="https://${gcCode}.goatcounter.com/count" async src="//gc.zgo.at/count.js"><\/script>
   <script>
-    setTimeout(function() { window.location.replace("${longUrl}"); }, 1200);
+    setTimeout(function() { window.location.replace("${longUrl}"); }, 800);
   <\/script>
+  <style>body { background-color: transparent; display: none; }</style>
 </head>
-<body>
-  <p>Redirecting you...</p>
-</body>
+<body></body>
 </html>`;
 
             const base64Content = btoa(unescape(encodeURIComponent(redirectHtml)));
             const apiUrl = `https://api.github.com/repos/${user}/${repo}/contents/${alias}/index.html`;
 
-            statusDiv.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Committing to GitHub...';
-
-            // Upload the index.html file
+            // --- COMMIT TO GITHUB ---
+            statusDiv.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Publishing to GitHub...';
             const response = await fetch(apiUrl, {
                 method: 'PUT',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -642,12 +740,10 @@
             });
 
             if (response.ok || response.status === 422) { 
-                statusDiv.classList.remove('alert-info');
-                statusDiv.classList.add('alert-success');
-                statusDiv.innerHTML = `<strong>🎉 Success!</strong> Your link has been created. GitHub Pages will make it live in ~30-60 seconds.`;
+                statusDiv.classList.add('d-none'); // Hide the status bar on success to clean up UI
                 showToast("Short link generated successfully!", "success");
                 
-                // Show QR & Link details
+                // Show Result Panel
                 document.getElementById('qrContainer').classList.remove('d-none');
                 new QRious({ element: document.getElementById('qrcode'), value: finalDomain, size: 200 });
                 
@@ -655,13 +751,15 @@
                 linkDisplay.href = finalDomain;
                 linkDisplay.innerText = finalDomain;
                 
-                // Clear the form fields for the next link
+                // Start polling GitHub Pages to see when it's live
+                pollLiveStatus(finalDomain);
+                
+                // Clear inputs for next time
                 document.getElementById('longUrl').value = '';
                 document.getElementById('alias').value = '';
                 document.getElementById('metaTitle').value = '';
                 document.getElementById('metaDesc').value = '';
                 document.getElementById('metaImage').value = '';
-                
             } else {
                 const errorData = await response.json();
                 throw new Error(errorData.message);
@@ -670,7 +768,7 @@
             statusDiv.classList.remove('alert-info');
             statusDiv.classList.add('alert-danger');
             statusDiv.innerHTML = `<strong>Error:</strong> ${error.message}`;
-            showToast(`Creation failed: ${error.message}`, "danger");
+            showToast(error.message, "danger");
         } finally {
             createBtn.disabled = false;
         }
